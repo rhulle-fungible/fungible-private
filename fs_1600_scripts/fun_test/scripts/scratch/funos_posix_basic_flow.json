@@ -1,0 +1,23 @@
+{
+    "name": "Basic Storage",
+    "dut_info": {
+        "0": {
+            "mode": "MODE_SIMULATION",
+            "type": "DUT_TYPE_FSU",
+            "interface_info": {
+                "0": {
+                    "vms": 0,
+                    "type": "INTERFACE_TYPE_PCIE"
+                }
+            },
+            "app": "epnvme_test",
+            "args": "",
+            "start_mode": "START_MODE_DPCSH_ONLY"
+        }
+    },
+    "tg_info": {
+        "0": {
+            "type": "TRAFFIC_GENERATOR_TYPE_LINUX_HOST"
+        }
+    }
+}

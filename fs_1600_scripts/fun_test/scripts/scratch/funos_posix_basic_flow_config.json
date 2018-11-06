@@ -1,0 +1,21 @@
+{
+    "FunTestCase1": {
+        "volume_params": {
+            "ns_id": 1,
+            "type": "VOL_TYPE_BLK_LOCAL_THIN",
+            "capacity": 1048576,
+            "block_size": 4096,
+            "name": "thin-block1",
+            "use_ls": "True"
+        },
+        "fio_params": {
+            "rw_mode": "readwrite",
+            "write_mode": "write",
+            "read_mode": "read",
+            "fio_block_size": "4k",
+            "fio_iodepth": 8,
+            "size": "128k",
+            "io_queues": 1
+        }
+    }
+}
