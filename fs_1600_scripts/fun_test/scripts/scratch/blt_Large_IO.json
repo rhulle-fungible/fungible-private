@@ -1,0 +1,21 @@
+{
+  "NvmeLargeIO": {
+    "reboot_after_config": 1,
+    "volume_type": "VOL_TYPE_BLK_LOCAL_THIN",
+    "vol_capacity": 16777216,
+    "vol_block": 1024,
+    "vol_name": "thin-block-1",
+    "dd_block_size": 1024,
+    "dd_count": 65536,
+    "nvme_start_block": 0,
+    "command_timeout": 5,
+    "iter_interval": 2,
+    "use_lsv": 1,
+    "ns_id": 1,
+    "nvme_device": "/dev/nvme0",
+    "data_pattern": "/dev/urandom",
+    "input_data": "/tmp/input",
+    "output_data": "/tmp/output",
+    "dataset_size": 262144
+  }
+}

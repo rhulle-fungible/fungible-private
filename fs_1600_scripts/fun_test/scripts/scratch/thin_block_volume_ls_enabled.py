@@ -7,7 +7,7 @@ import os
 os.environ["DOCKER_HOSTS_SPEC_FILE"] = fun_test.get_script_parent_directory() + "/remote_docker_host_with_storage.json"
 
 
-class MyScript(FunTestScript):
+class BltLsEnabled(FunTestScript):
     def describe(self):
         self.set_test_details(steps="""
         1. Setup one F1 container
@@ -15,7 +15,7 @@ class MyScript(FunTestScript):
         """)
 
     def setup(self):
-        spec_file = fun_test.get_script_parent_directory() + "/single_f1_dpcsh_and_tg_fio.json"
+        spec_file = fun_test.get_script_parent_directory() + "/thin_block_volume_sanity_tb.json"
         # topology_obj_helper = TopologyHelper(spec_file="./single_f1_dpcsh_and_tg_fio.json")
         topology_obj_helper = TopologyHelper(spec_file=spec_file)
         topology = topology_obj_helper.deploy()
@@ -30,11 +30,11 @@ class MyScript(FunTestScript):
 class FunTestCase1(FunTestCase):
     def describe(self):
         self.set_test_details(id=1,
-                              summary="Configure volume and Run traffic using fio",
+                              summary="Configure volume with log_store enabled and Run traffic using fio",
                               steps="""
         1. Use StorageController to connect to the dpcsh tcp proxy to F1
         2. Configure ip_cfg
-        3. Create volume
+        3. Create volume with log_store enabled
         4. Attach volume to remote server
         5. Run fio from remote server
                               """)
@@ -52,7 +52,7 @@ class FunTestCase1(FunTestCase):
 
         linux_host = topology.get_tg_instance(tg_index=0)
 
-        config_file = fun_test.get_script_parent_directory() + "/funos_posix_basic_flow_config.json"
+        config_file = fun_test.get_script_parent_directory() + "/thin_block_volume_sanity_config.json"
         fun_test.log("Config file being used: {}".format(config_file))
         config_dict = {}
         config_dict = utils.parse_file_to_json(config_file)
@@ -65,6 +65,7 @@ class FunTestCase1(FunTestCase):
         volume_name = config_dict["FunTestCase1"]["volume_params"]["name"]
         ns_id = config_dict["FunTestCase1"]["volume_params"]["ns_id"]
         volume_type = config_dict["FunTestCase1"]["volume_params"]["type"]
+        use_ls = True # config_dict["FunTestCase1"]["volume_params"]["use_ls"] - value is being passed in quotes
 
         storage_controller = StorageController(target_ip=dut_instance0.host_ip,
                                                target_port=dut_instance0.external_dpcsh_port)
@@ -73,10 +74,10 @@ class FunTestCase1(FunTestCase):
         result_ip_cfg = storage_controller.ip_cfg(ip=dut_instance0.data_plane_ip)
         fun_test.test_assert(result_ip_cfg["status"], "ip_cfg {} on Dut Instance".format(dut_instance0.data_plane_ip))
 
-        # Creating Thin block volume
+        # Creating Thin block volume with log_store enabled
         result_create_volume = storage_controller.create_thin_block_volume(capacity=volume_capacity,
                                                                            block_size=block_size, uuid=thin_uuid,
-                                                                           name=volume_name)
+                                                                           name=volume_name, use_ls=use_ls)
         fun_test.test_assert(result_create_volume["status"], "Thin Block volume is created")
 
         # Attaching volume to remote server - to linux container
@@ -141,6 +142,6 @@ class FunTestCase1(FunTestCase):
 
 
 if __name__ == "__main__":
-    myscript = MyScript()
-    myscript.add_test_case(FunTestCase1())
-    myscript.run()
+    blt_ls_enabled = BltLsEnabled()
+    blt_ls_enabled.add_test_case(FunTestCase1())
+    blt_ls_enabled.run()

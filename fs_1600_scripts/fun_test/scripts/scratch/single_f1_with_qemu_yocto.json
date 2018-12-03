@@ -1,0 +1,24 @@
+{
+    "name": "Basic Storage",
+    "dut_info": {
+        "0": {
+            "mode": "MODE_SIMULATION",
+            "type": "DUT_TYPE_FSU",
+            "interface_info": {
+                "0": {
+                    "vms": 1,
+                    "type": "INTERFACE_TYPE_PCIE",
+                    "vm_start_mode": "VM_START_MODE_NORMAL",
+                    "vm_host_os": "fungible_yocto"
+                }
+            },
+            "start_mode": "START_MODE_NORMAL"
+        }
+    },
+    "tg_info": {
+        "0": {
+            "type": "TRAFFIC_GENERATOR_TYPE_FIO"
+        }
+    }
+
+}

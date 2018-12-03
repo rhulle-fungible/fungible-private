@@ -7,7 +7,7 @@ import os
 os.environ["DOCKER_HOSTS_SPEC_FILE"] = fun_test.get_script_parent_directory() + "/remote_docker_host_with_storage.json"
 
 
-class MyScript(FunTestScript):
+class ThinBlockVolSanity(FunTestScript):
     def describe(self):
         self.set_test_details(steps="""
         1. Setup one F1 container
@@ -15,7 +15,7 @@ class MyScript(FunTestScript):
         """)
 
     def setup(self):
-        spec_file = fun_test.get_script_parent_directory() + "/single_f1_dpcsh_and_tg_fio.json"
+        spec_file = fun_test.get_script_parent_directory() + "/thin_block_volume_sanity_tb.json"
         # topology_obj_helper = TopologyHelper(spec_file="./single_f1_dpcsh_and_tg_fio.json")
         topology_obj_helper = TopologyHelper(spec_file=spec_file)
         topology = topology_obj_helper.deploy()
@@ -36,7 +36,10 @@ class FunTestCase1(FunTestCase):
         2. Configure ip_cfg
         3. Create volume
         4. Attach volume to remote server
-        5. Run fio from remote server
+        5. Write data using fio from remote server
+        6. Read data with Read IO and validate with data write
+        7. Detach volume
+        8. Delete volume and verify stats are cleared for deleted volume
                               """)
 
     def setup(self):
@@ -52,19 +55,28 @@ class FunTestCase1(FunTestCase):
 
         linux_host = topology.get_tg_instance(tg_index=0)
 
-        config_file = fun_test.get_script_parent_directory() + "/funos_posix_basic_flow_config.json"
+        config_file = fun_test.get_script_parent_directory() + "/thin_block_volume_sanity_config.json"
         fun_test.log("Config file being used: {}".format(config_file))
         config_dict = {}
         config_dict = utils.parse_file_to_json(config_file)
 
         # parameters required for dpcsh command execution
         thin_uuid = utils.generate_uuid()
-
         volume_capacity = config_dict["FunTestCase1"]["volume_params"]["capacity"]
         block_size = config_dict["FunTestCase1"]["volume_params"]["block_size"]
         volume_name = config_dict["FunTestCase1"]["volume_params"]["name"]
         ns_id = config_dict["FunTestCase1"]["volume_params"]["ns_id"]
         volume_type = config_dict["FunTestCase1"]["volume_params"]["type"]
+
+        # Parameters required for fio execution
+        # rw_mode = config_dict["FunTestCase1"]["fio_params"]["rw_mode"]
+        write_mode = config_dict["FunTestCase1"]["fio_params"]["write_mode"]
+        read_mode = config_dict["FunTestCase1"]["fio_params"]["read_mode"]
+        fio_block_size = config_dict["FunTestCase1"]["fio_params"]["fio_block_size"]
+        fio_iodepth = config_dict["FunTestCase1"]["fio_params"]["fio_iodepth"]
+        size = config_dict["FunTestCase1"]["fio_params"]["size"]
+
+        storage_props_tree = "{}/{}/{}/{}/{}".format("storage", "volumes", volume_type, thin_uuid, "stats")
 
         storage_controller = StorageController(target_ip=dut_instance0.host_ip,
                                                target_port=dut_instance0.external_dpcsh_port)
@@ -84,16 +96,14 @@ class FunTestCase1(FunTestCase):
                                                                        remote_ip=linux_host.internal_ip)
         fun_test.test_assert(result_attach_volume["status"], "Thin Block volume is attached")
 
-        storage_props_tree = "{}/{}/{}/{}".format("storage", "volumes", volume_type, thin_uuid)
-
         initial_volume_status = {}
         command_result = storage_controller.peek(storage_props_tree)
         fun_test.simple_assert(command_result["status"], "Initial volume stats of DUT Instance 0")
         initial_volume_status = command_result["data"]
         fun_test.log("Volume Status at the beginning of the test:")
         fun_test.log(initial_volume_status)
-        volume_status_read = command_result["data"]["stats"]["num_reads"]
-        volume_status_write = command_result["data"]["stats"]["num_writes"]
+        volume_status_read = command_result["data"]["num_reads"]
+        volume_status_write = command_result["data"]["num_writes"]
         initial_counter_stat = 0
 
         fun_test.test_assert_expected(expected=initial_counter_stat, actual=volume_status_write,
@@ -103,14 +113,6 @@ class FunTestCase1(FunTestCase):
 
         # Generating traffic from remote server using fio
         destination_ip = dut_instance0.data_plane_ip
-
-        # Parameters required for fio execution
-        # rw_mode = config_dict["FunTestCase1"]["fio_params"]["rw_mode"]
-        write_mode = config_dict["FunTestCase1"]["fio_params"]["write_mode"]
-        read_mode = config_dict["FunTestCase1"]["fio_params"]["read_mode"]
-        fio_block_size = config_dict["FunTestCase1"]["fio_params"]["fio_block_size"]
-        fio_iodepth = config_dict["FunTestCase1"]["fio_params"]["fio_iodepth"]
-        size = config_dict["FunTestCase1"]["fio_params"]["size"]
 
         fio_result = linux_host.remote_fio(destination_ip=destination_ip, rw=write_mode,
                                            bs=fio_block_size, iodepth=fio_iodepth, size=size)
@@ -122,8 +124,8 @@ class FunTestCase1(FunTestCase):
         fun_test.simple_assert(command_result["status"], "Volume stats of DUT Instance 0 after IO")
         volume_status = command_result["data"]
         fun_test.log(volume_status)
-        volume_status_write = command_result["data"]["stats"]["num_writes"]
-        volume_status_read = command_result["data"]["stats"]["num_reads"]
+        volume_status_write = command_result["data"]["num_writes"]
+        volume_status_read = command_result["data"]["num_reads"]
         expected_counter_stat = int(filter(str.isdigit, str(size)))/int(filter(str.isdigit, str(fio_block_size)))
         fun_test.log(expected_counter_stat)
 
@@ -135,12 +137,22 @@ class FunTestCase1(FunTestCase):
         result_detach_volume = storage_controller.volume_detach_remote(ns_id=ns_id, uuid=thin_uuid,
                                                                        remote_ip=linux_host.internal_ip)
         fun_test.test_assert(result_detach_volume["status"], "Thin Block volume is detached")
+
+        command_result = storage_controller.peek(storage_props_tree)
+        fun_test.log(command_result)
+        fun_test.test_assert_expected(expected=True, actual=command_result["status"], message="Volume is detached")
+
         result_delete_volume = storage_controller.delete_thin_block_volume(capacity=volume_capacity, uuid=thin_uuid,
                                                                            block_size=block_size, name=volume_name)
         fun_test.test_assert(result_delete_volume["status"], "Thin Block volume is deleted")
 
+        command_result = storage_controller.peek(storage_props_tree)
+        fun_test.log(command_result)
+        fun_test.test_assert_expected(expected=False, actual=command_result["status"],
+                                      message="Stat and Counters are reset after deleting volume")
+
 
 if __name__ == "__main__":
-    myscript = MyScript()
-    myscript.add_test_case(FunTestCase1())
-    myscript.run()
+    thin_block_vol_sanity = ThinBlockVolSanity()
+    thin_block_vol_sanity.add_test_case(FunTestCase1())
+    thin_block_vol_sanity.run()

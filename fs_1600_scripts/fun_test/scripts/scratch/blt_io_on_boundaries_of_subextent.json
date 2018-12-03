@@ -1,0 +1,22 @@
+{
+  "BLTWriteOnBoundaries": {
+    "reboot_after_config": 1,
+    "volume_type": "VOL_TYPE_BLK_LOCAL_THIN",
+    "vol_capacity": 16777216,
+    "volume_block": 4096,
+    "volume_name": "thin-block-1",
+    "dd_block_size": 4096,
+    "dd_count": 1,
+    "nvme_start_block": 16385,
+    "command_timeout": 5,
+    "iter_interval": 2,
+    "ns_id": 1,
+    "nvme_device": "/dev/nvme0",
+    "data_pattern": "/dev/urandom",
+    "input_data": "/tmp/input",
+    "output_data": "/tmp/output",
+    "dataset_size": 262144,
+    "sub_extent_size": 67108864,
+    "extent_size": 536870912
+  }
+}
